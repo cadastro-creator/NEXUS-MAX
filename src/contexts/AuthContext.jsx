@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth'
+import { onAuthStateChanged, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config.js'
 
@@ -13,34 +13,57 @@ export function AuthProvider({ children }) {
   const [erro, setErro]       = useState('')
 
   useEffect(() => {
-    // Verifica resultado do redirect ao carregar a página
-    getRedirectResult(auth).catch(() => {})
+    // Processa resultado do redirect primeiro
+    getRedirectResult(auth)
+      .then(result => {
+        if (result?.user) {
+          console.log('Redirect result OK:', result.user.uid)
+        }
+      })
+      .catch(e => {
+        console.error('Redirect error:', e)
+      })
 
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser?.uid)
+
       if (firebaseUser) {
-        const ref = doc(db, 'usuarios', firebaseUser.uid)
-        const snap = await getDoc(ref)
-        if (snap.exists()) {
-          const data = snap.data()
-          if (!data.ativo) {
+        try {
+          const ref = doc(db, 'usuarios', firebaseUser.uid)
+          const snap = await getDoc(ref)
+
+          console.log('Firestore snap exists:', snap.exists())
+          console.log('Buscando UID:', firebaseUser.uid)
+
+          if (snap.exists()) {
+            const data = snap.data()
+            console.log('Dados encontrados:', data)
+
+            if (!data.ativo) {
+              setErro('Usuário desativado. Contate o administrador.')
+              await signOut(auth)
+              setUser(null)
+              setPerfil(null)
+            } else {
+              setErro('')
+              setPerfil(data)
+              setUser(firebaseUser)
+            }
+          } else {
+            console.error('Documento não encontrado para UID:', firebaseUser.uid)
+            setErro('Acesso não autorizado. UID: ' + firebaseUser.uid)
             await signOut(auth)
-            setErro('Usuário desativado. Contate o administrador.')
             setUser(null)
             setPerfil(null)
-            setLoading(false)
-            return
           }
-          setPerfil(data)
-          setUser(firebaseUser)
-        } else {
-          setErro('Acesso não autorizado. Contate o administrador.')
-          await signOut(auth)
-          setUser(null)
-          setPerfil(null)
+        } catch (e) {
+          console.error('Erro ao buscar perfil:', e)
+          setErro('Erro ao carregar perfil: ' + e.message)
         }
       } else {
         setUser(null)
         setPerfil(null)
+        setErro('')
       }
       setLoading(false)
     })
