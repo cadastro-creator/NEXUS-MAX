@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function Login() {
-  const { loginGoogle, user } = useAuth()
+  const { loginGoogle, user, erro: erroAuth } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
@@ -12,21 +12,19 @@ export default function Login() {
     if (user) navigate('/')
   }, [user])
 
+  React.useEffect(() => {
+    if (erroAuth) setErro(erroAuth)
+  }, [erroAuth])
+
   async function handleLogin() {
     setErro('')
     setLoading(true)
     try {
       await loginGoogle()
     } catch (e) {
-      if (e.code === 'auth/popup-closed-by-user') {
-        setErro('Login cancelado.')
-      } else if (e.code === 'auth/user-disabled') {
-        setErro('Usuário desativado. Contate o administrador.')
-      } else {
-        setErro('Erro ao fazer login. Tente novamente.')
-      }
+      setErro('Erro ao iniciar login. Tente novamente.')
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -84,19 +82,10 @@ export default function Login() {
         </div>
 
         {/* DIVIDER */}
-        <div style={{
-          width: '100%',
-          height: 1,
-          background: 'var(--border)'
-        }} />
+        <div style={{ width: '100%', height: 1, background: 'var(--border)' }} />
 
         {/* LOGIN */}
-        <div style={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12
-        }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <p style={{
             color: 'var(--text2)',
             fontSize: 13,
@@ -112,7 +101,7 @@ export default function Login() {
             disabled={loading}
             style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: 14 }}
           >
-            {loading ? 'Entrando...' : '🔐 Entrar com Google'}
+            {loading ? 'Redirecionando...' : '🔐 Entrar com Google'}
           </button>
 
           {erro && (
