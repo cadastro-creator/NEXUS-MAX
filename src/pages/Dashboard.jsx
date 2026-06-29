@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestor
 import { db } from '../firebase/config.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import Fila from './Fila.jsx'
+import Usuarios from './Usuarios.jsx'
 
 const MENU = [
   { id: 'home',        icon: '⬡',  label: 'Dashboard'        },
@@ -180,6 +181,7 @@ export default function Dashboard() {
 function PaginaAtiva({ id, perfil, user }) {
   if (id === 'home') return <PaginaHome perfil={perfil} user={user} />
   if (id === 'fila') return <Fila />
+  if (id === 'usuarios') return <Usuarios />
   return <EmConstrucao />
 }
 
