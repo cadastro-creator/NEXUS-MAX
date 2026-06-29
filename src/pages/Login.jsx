@@ -8,7 +8,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
 
-  useEffect(() => { if (user) navigate('/') }, [user])
+  useEffect(() => {if (user) {navigate('/', { replace: true })}}, [user])
   useEffect(() => { if (erroAuth) setErro(erroAuth) }, [erroAuth])
 
   async function handleLogin() {
