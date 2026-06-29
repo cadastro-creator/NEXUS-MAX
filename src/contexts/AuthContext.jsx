@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-  GoogleAuthProvider
+  onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider
 } from 'firebase/auth'
 import {
   doc, getDoc, setDoc, updateDoc,
@@ -16,64 +13,23 @@ const AuthContext = createContext({})
 export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]           = useState(null)
-  const [perfil, setPerfil]       = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [erro, setErro]           = useState('')
+  const [user, setUser]             = useState(null)
+  const [perfil, setPerfil]         = useState(null)
+  const [loading, setLoading]       = useState(true)
+  const [erro, setErro]             = useState('')
   // 'loading' | 'unauthenticated' | 'unauthorized' | 'authenticated'
   const [authStatus, setAuthStatus] = useState('loading')
-
-  // Verifica se há convite pendente para o email e cria o usuário automaticamente
-  async function processarConvite(firebaseUser) {
-    try {
-      const q = query(
-        collection(db, 'convites'),
-        where('email', '==', firebaseUser.email.toLowerCase()),
-        where('usado', '==', false)
-      )
-      const snap = await getDocs(q)
-      if (snap.empty) return null
-
-      const conviteDoc = snap.docs[0]
-      const convite = conviteDoc.data()
-
-      const novoUsuario = {
-        nome:         convite.nome || firebaseUser.displayName || firebaseUser.email.split('@')[0],
-        email:        firebaseUser.email.toLowerCase(),
-        perfil:       convite.perfil,
-        ativo:        true,
-        criadoEm:     serverTimestamp(),
-        atualizadoEm: serverTimestamp(),
-        conviteId:    conviteDoc.id,
-      }
-
-      await setDoc(doc(db, 'usuarios', firebaseUser.uid), novoUsuario)
-      await updateDoc(doc(db, 'convites', conviteDoc.id), {
-        usado:    true,
-        usadoPor: firebaseUser.uid,
-        usadoEm:  serverTimestamp(),
-      })
-
-      return novoUsuario
-    } catch (e) {
-      console.error('Erro ao processar convite:', e)
-      return null
-    }
-  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        setUser(null)
-        setPerfil(null)
-        setErro('')
-        setAuthStatus('unauthenticated')
-        setLoading(false)
+        setUser(null); setPerfil(null); setErro('')
+        setAuthStatus('unauthenticated'); setLoading(false)
         return
       }
 
       try {
-        // 1. Tenta carregar documento do usuário (até 3x, pois pode estar sendo criado)
+        // Verifica documento do usuário (até 3x)
         let snap = null
         for (let i = 0; i < 3; i++) {
           snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid))
@@ -86,35 +42,21 @@ export function AuthProvider({ children }) {
           if (!data.ativo) {
             setErro('Usuário desativado. Contate o administrador.')
             await signOut(auth)
-            setUser(null)
-            setPerfil(null)
+            setUser(null); setPerfil(null)
             setAuthStatus('unauthorized')
           } else {
-            setErro('')
-            setUser(firebaseUser)
-            setPerfil(data)
+            setErro(''); setUser(firebaseUser); setPerfil(data)
             setAuthStatus('authenticated')
-            // Atualiza último acesso sem bloquear
             updateDoc(doc(db, 'usuarios', firebaseUser.uid), {
               ultimoAcesso: serverTimestamp()
             }).catch(() => {})
           }
         } else {
-          // 2. Sem documento — verifica convite
-          const novoUsuario = await processarConvite(firebaseUser)
-
-          if (novoUsuario) {
-            setErro('')
-            setUser(firebaseUser)
-            setPerfil(novoUsuario)
-            setAuthStatus('authenticated')
-          } else {
-            // Sem convite — acesso negado (não faz logout, apenas bloqueia)
-            setErro('Acesso não autorizado. Contate o administrador.')
-            setUser(firebaseUser)   // mantém user para exibir email na tela de bloqueio
-            setPerfil(null)
-            setAuthStatus('unauthorized')
-          }
+          // Sem documento — sem convite válido usado
+          setErro('Acesso não autorizado. Contate o administrador.')
+          setUser(firebaseUser)
+          setPerfil(null)
+          setAuthStatus('unauthorized')
         }
       } catch (e) {
         setErro('Erro ao carregar perfil: ' + e.message)
@@ -139,16 +81,75 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Login via convite — chamado pela página /convite/:id após o login Google
+  async function loginComConvite(conviteId) {
+    setErro('')
+    try {
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+      const result = await signInWithPopup(auth, provider)
+      const firebaseUser = result.user
+
+      // Verifica se já tem conta (segundo login com mesmo link)
+      const userSnap = await getDoc(doc(db, 'usuarios', firebaseUser.uid))
+      if (userSnap.exists() && userSnap.data().ativo) {
+        setPerfil(userSnap.data()); setUser(firebaseUser)
+        setAuthStatus('authenticated')
+        return { ok: true }
+      }
+
+      // Busca o convite pelo ID
+      const conviteSnap = await getDoc(doc(db, 'convites', conviteId))
+      if (!conviteSnap.exists()) {
+        await signOut(auth)
+        return { ok: false, erro: 'Convite não encontrado.' }
+      }
+
+      const convite = conviteSnap.data()
+      if (convite.usado) {
+        await signOut(auth)
+        return { ok: false, erro: 'Este link de convite já foi utilizado.' }
+      }
+
+      // Cria o usuário
+      const novoUsuario = {
+        nome:         convite.nome,
+        email:        firebaseUser.email.toLowerCase(),
+        perfil:       convite.perfil,
+        ativo:        true,
+        criadoEm:     serverTimestamp(),
+        atualizadoEm: serverTimestamp(),
+        conviteId:    conviteId,
+      }
+      await setDoc(doc(db, 'usuarios', firebaseUser.uid), novoUsuario)
+
+      // Marca convite como usado
+      await updateDoc(doc(db, 'convites', conviteId), {
+        usado: true, usadoPor: firebaseUser.uid, usadoEm: serverTimestamp(),
+        emailUsado: firebaseUser.email.toLowerCase(),
+      })
+
+      setPerfil(novoUsuario); setUser(firebaseUser)
+      setAuthStatus('authenticated')
+      return { ok: true }
+    } catch (e) {
+      if (e.code !== 'auth/popup-closed-by-user') {
+        return { ok: false, erro: 'Erro ao fazer login: ' + e.message }
+      }
+      return { ok: false, erro: '' }
+    }
+  }
+
   async function logout() {
     await signOut(auth)
-    setUser(null)
-    setPerfil(null)
-    setErro('')
+    setUser(null); setPerfil(null); setErro('')
     setAuthStatus('unauthenticated')
   }
 
   return (
-    <AuthContext.Provider value={{ user, perfil, loading, loginGoogle, logout, erro, authStatus }}>
+    <AuthContext.Provider value={{
+      user, perfil, loading, loginGoogle, loginComConvite, logout, erro, authStatus
+    }}>
       {children}
     </AuthContext.Provider>
   )

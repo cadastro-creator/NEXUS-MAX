@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import {
   collection, onSnapshot, doc, setDoc, updateDoc,
-  addDoc, deleteDoc, getDocs, query, orderBy,
-  serverTimestamp
+  addDoc, deleteDoc, getDocs, query, orderBy, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '../firebase/config.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
+
+const BASE_URL = 'https://scar-max.web.app'
 
 const PERFIS = [
   { value: 'SUPER_ADMIN',       label: 'Super Admin'        },
@@ -29,69 +30,67 @@ const PERFIL_CORES = {
   GARANTIAS:         'badge-gray',
 }
 
-// ─── ABA SELECTOR ─────────────────────────────────────────────────────────────
 function Aba({ id, label, ativa, onClick }) {
   return (
-    <button
-      onClick={() => onClick(id)}
-      style={{
-        background: 'none', border: 'none',
-        borderBottom: ativa ? '2px solid var(--accent)' : '2px solid transparent',
-        color: ativa ? 'var(--accent)' : 'var(--text3)',
-        padding: '10px 4px',
-        marginRight: 20,
-        fontSize: 13, fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all .15s',
-        fontFamily: 'inherit',
-        whiteSpace: 'nowrap',
-      }}
-    >
+    <button onClick={() => onClick(id)} style={{
+      background: 'none', border: 'none',
+      borderBottom: ativa ? '2px solid var(--accent)' : '2px solid transparent',
+      color: ativa ? 'var(--accent)' : 'var(--text3)',
+      padding: '10px 4px', marginRight: 20,
+      fontSize: 13, fontWeight: 600, cursor: 'pointer',
+      transition: 'all .15s', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    }}>
       {label}
     </button>
   )
 }
 
-// ─── MODAL CONVITE ─────────────────────────────────────────────────────────────
-function ModalConvite({ convite, onClose, onSalvo, nomeAdmin }) {
-  const isEdicao = !!convite
-  const [form, setForm] = useState({
-    nome:   convite?.nome   || '',
-    email:  convite?.email  || '',
-    perfil: convite?.perfil || 'COMPRADOR',
-  })
-  const [salvando, setSalvando] = useState(false)
-  const [erro, setErro] = useState('')
+// ─── MODAL GERAR CONVITE ────────────────────────────────────────────────────
+function ModalConvite({ onClose, onGerado, nomeAdmin }) {
+  const [form, setForm]       = useState({ nome: '', perfil: 'COMPRADOR' })
+  const [gerando, setGerando] = useState(false)
+  const [link, setLink]       = useState('')
+  const [copiado, setCopiado] = useState(false)
+  const [erro, setErro]       = useState('')
 
   const set = (campo, valor) => { setForm(f => ({ ...f, [campo]: valor })); setErro('') }
 
-  async function salvar() {
-    if (!form.nome.trim())  return setErro('Nome é obrigatório.')
-    if (!form.email.trim() || !form.email.includes('@')) return setErro('Informe um e-mail válido.')
-
-    setSalvando(true)
+  async function gerar() {
+    if (!form.nome.trim()) return setErro('Informe o nome da pessoa.')
+    setGerando(true)
     try {
-      if (isEdicao) {
-        await updateDoc(doc(db, 'convites', convite.id), {
-          nome:   form.nome.trim(),
-          perfil: form.perfil,
-        })
-      } else {
-        await addDoc(collection(db, 'convites'), {
-          nome:          form.nome.trim(),
-          email:         form.email.trim().toLowerCase(),
-          perfil:        form.perfil,
-          usado:         false,
-          convidadoPor:  nomeAdmin || 'Admin',
-          criadoEm:      serverTimestamp(),
-        })
-      }
-      onSalvo()
-      onClose()
+      const ref = await addDoc(collection(db, 'convites'), {
+        nome:         form.nome.trim(),
+        perfil:       form.perfil,
+        usado:        false,
+        convidadoPor: nomeAdmin || 'Admin',
+        criadoEm:     serverTimestamp(),
+      })
+      const url = `${BASE_URL}/convite/${ref.id}`
+      setLink(url)
+      onGerado()
     } catch (e) {
-      setErro('Erro ao salvar: ' + e.message)
+      setErro('Erro ao gerar convite: ' + e.message)
     }
-    setSalvando(false)
+    setGerando(false)
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      // fallback para dispositivos sem clipboard API
+      const el = document.createElement('textarea')
+      el.value = link
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    }
   }
 
   return (
@@ -100,148 +99,167 @@ function ModalConvite({ convite, onClose, onSalvo, nomeAdmin }) {
       background: 'rgba(0,0,0,.75)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20, backdropFilter: 'blur(4px)',
-    }} onClick={onClose}>
+    }} onClick={!link ? onClose : undefined}>
       <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border2)',
-        borderRadius: 'var(--radius)',
-        width: '100%', maxWidth: 460,
+        background: 'var(--surface)', border: '1px solid var(--border2)',
+        borderRadius: 'var(--radius)', width: '100%', maxWidth: 460,
       }} onClick={e => e.stopPropagation()}>
 
         {/* HEADER */}
         <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid var(--border)',
+          padding: '20px 24px', borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-            {isEdicao ? 'Editar Convite' : 'Convidar Pessoa'}
+            {link ? '✅ Convite gerado' : '✉️ Gerar link de convite'}
           </div>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none',
-            color: 'var(--text3)', cursor: 'pointer', fontSize: 20,
-          }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 20 }}>×</button>
         </div>
 
-        {/* FORM */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* NOME */}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
-              Nome *
-            </label>
-            <input
-              className="input"
-              placeholder="Ex: Everton Silva"
-              value={form.nome}
-              onChange={e => set('nome', e.target.value)}
-            />
-          </div>
+          {!link ? (
+            <>
+              {/* NOME */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
+                  Nome da pessoa *
+                </label>
+                <input
+                  className="input"
+                  placeholder="Ex: Everton"
+                  value={form.nome}
+                  onChange={e => set('nome', e.target.value)}
+                  autoFocus
+                />
+              </div>
 
-          {/* EMAIL */}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
-              E-mail Google *
-            </label>
-            <input
-              className="input"
-              type="email"
-              placeholder="exemplo@contattos.com"
-              value={form.email}
-              onChange={e => set('email', e.target.value)}
-              disabled={isEdicao}
-              style={isEdicao ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-            />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-              Deve ser o e-mail da conta Google que a pessoa usará para acessar.
-            </div>
-          </div>
+              {/* PERFIL */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
+                  Nível de acesso *
+                </label>
+                <select
+                  className="input"
+                  value={form.perfil}
+                  onChange={e => set('perfil', e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {PERFIS.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* PERFIL */}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
-              Perfil de acesso *
-            </label>
-            <select
-              className="input"
-              value={form.perfil}
-              onChange={e => set('perfil', e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
-              {PERFIS.map(p => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-          </div>
+              {/* PREVIEW */}
+              <div style={{
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', padding: '12px 16px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  {form.nome.trim() || '—'} entrará como:
+                </span>
+                <span className={`badge ${PERFIL_CORES[form.perfil] || 'badge-gray'}`}>
+                  {PERFIS.find(p => p.value === form.perfil)?.label}
+                </span>
+              </div>
 
-          {/* PREVIEW PERFIL */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>Acesso como:</span>
-            <span className={`badge ${PERFIL_CORES[form.perfil] || 'badge-gray'}`}>
-              {form.perfil}
-            </span>
-          </div>
+              {erro && (
+                <div style={{
+                  background: 'var(--red-dim)', color: 'var(--red)',
+                  border: '1px solid rgba(242,92,110,.3)',
+                  borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 12,
+                }}>{erro}</div>
+              )}
 
-          {/* ERRO */}
-          {erro && (
-            <div style={{
-              background: 'var(--red-dim)', color: 'var(--red)',
-              border: '1px solid rgba(242,92,110,.3)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px', fontSize: 12,
-            }}>
-              {erro}
-            </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={gerar}
+                  disabled={gerando}
+                  style={{ flex: 1, justifyContent: 'center', padding: 12 }}
+                >
+                  {gerando ? 'Gerando...' : '🔗 Gerar link'}
+                </button>
+                <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* SUCESSO — exibe o link */}
+              <div style={{ textAlign: 'center', paddingBottom: 8 }}>
+                <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 4 }}>
+                  Link de acesso para <strong style={{ color: 'var(--text)' }}>{form.nome}</strong>
+                </div>
+                <span className={`badge ${PERFIL_CORES[form.perfil] || 'badge-gray'}`}>
+                  {PERFIS.find(p => p.value === form.perfil)?.label}
+                </span>
+              </div>
+
+              {/* CAIXA DO LINK */}
+              <div style={{
+                background: 'var(--surface2)', border: '1px solid var(--border2)',
+                borderRadius: 'var(--radius-sm)', padding: '12px 16px',
+                fontFamily: 'DM Mono, monospace', fontSize: 12,
+                color: 'var(--text2)', wordBreak: 'break-all', lineHeight: 1.5,
+              }}>
+                {link}
+              </div>
+
+              {/* BOTÃO COPIAR */}
+              <button
+                className={`btn ${copiado ? 'btn-success' : 'btn-primary'}`}
+                onClick={copiar}
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: 14 }}
+              >
+                {copiado ? '✓ Copiado!' : '📋 Copiar link'}
+              </button>
+
+              {/* INSTRUÇÃO */}
+              <div style={{
+                background: 'var(--acc-dim)', border: '1px solid rgba(249,115,22,.2)',
+                borderRadius: 'var(--radius-sm)', padding: '12px 16px',
+                fontSize: 12, color: 'var(--text2)', lineHeight: 1.6,
+              }}>
+                <strong style={{ color: 'var(--accent)' }}>Como usar:</strong><br />
+                Cole este link no WhatsApp ou email. A pessoa clica, faz login com a conta Google, e o acesso é criado automaticamente.<br />
+                <span style={{ color: 'var(--text3)' }}>O link é de uso único e não expira.</span>
+              </div>
+
+              <button className="btn btn-ghost" onClick={onClose} style={{ width: '100%', justifyContent: 'center' }}>
+                Fechar
+              </button>
+            </>
           )}
-
-          {/* BOTÕES */}
-          <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
-            <button
-              className="btn btn-primary"
-              onClick={salvar}
-              disabled={salvando}
-              style={{ flex: 1, justifyContent: 'center', padding: 12 }}
-            >
-              {salvando ? 'Salvando...' : isEdicao ? '💾 Atualizar' : '✉️ Enviar Convite'}
-            </button>
-            <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-          </div>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── MODAL EDITAR USUÁRIO ──────────────────────────────────────────────────────
+// ─── MODAL EDITAR USUÁRIO ───────────────────────────────────────────────────
 function ModalUsuario({ usuario, onClose }) {
-  const [form, setForm] = useState({
+  const [form, setForm]   = useState({
     nome:   usuario?.nome   || '',
     email:  usuario?.email  || '',
     perfil: usuario?.perfil || 'COMPRADOR',
     ativo:  usuario?.ativo !== undefined ? usuario.ativo : true,
   })
   const [salvando, setSalvando] = useState(false)
-  const [erro, setErro] = useState('')
-
+  const [erro, setErro]         = useState('')
   const set = (campo, valor) => setForm(f => ({ ...f, [campo]: valor }))
 
   async function salvar() {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.')
-    setSalvando(true)
-    setErro('')
+    setSalvando(true); setErro('')
     try {
       await setDoc(doc(db, 'usuarios', usuario.id), {
-        nome:         form.nome.trim(),
-        email:        form.email.trim().toLowerCase(),
-        perfil:       form.perfil,
-        ativo:        form.ativo,
-        atualizadoEm: serverTimestamp(),
+        nome: form.nome.trim(), email: form.email.trim().toLowerCase(),
+        perfil: form.perfil, ativo: form.ativo, atualizadoEm: serverTimestamp(),
       }, { merge: true })
       onClose()
-    } catch (e) {
-      setErro('Erro ao salvar: ' + e.message)
-    }
+    } catch (e) { setErro('Erro ao salvar: ' + e.message) }
     setSalvando(false)
   }
 
@@ -253,24 +271,16 @@ function ModalUsuario({ usuario, onClose }) {
       padding: 20, backdropFilter: 'blur(4px)',
     }} onClick={onClose}>
       <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border2)',
-        borderRadius: 'var(--radius)',
-        width: '100%', maxWidth: 460,
+        background: 'var(--surface)', border: '1px solid var(--border2)',
+        borderRadius: 'var(--radius)', width: '100%', maxWidth: 460,
       }} onClick={e => e.stopPropagation()}>
-
         <div style={{
           padding: '20px 24px', borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-            Editar — {usuario.nome}
-          </div>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 20,
-          }}>×</button>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Editar — {usuario.nome}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 20 }}>×</button>
         </div>
-
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Nome *</label>
@@ -286,15 +296,13 @@ function ModalUsuario({ usuario, onClose }) {
               {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
-
-          {/* ATIVO toggle */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             background: 'var(--surface2)', borderRadius: 'var(--radius-sm)', padding: '12px 16px',
           }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Usuário ativo</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Usuários inativos não conseguem fazer login</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Inativos não conseguem fazer login</div>
             </div>
             <div onClick={() => set('ativo', !form.ativo)} style={{
               width: 44, height: 24, borderRadius: 12,
@@ -308,7 +316,6 @@ function ModalUsuario({ usuario, onClose }) {
               }} />
             </div>
           </div>
-
           {erro && (
             <div style={{
               background: 'var(--red-dim)', color: 'var(--red)',
@@ -316,11 +323,10 @@ function ModalUsuario({ usuario, onClose }) {
               borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 12,
             }}>{erro}</div>
           )}
-
-          <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary" onClick={salvar} disabled={salvando}
               style={{ flex: 1, justifyContent: 'center', padding: 12 }}>
-              {salvando ? 'Salvando...' : '💾 Salvar Alterações'}
+              {salvando ? 'Salvando...' : '💾 Salvar'}
             </button>
             <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
           </div>
@@ -330,22 +336,19 @@ function ModalUsuario({ usuario, onClose }) {
   )
 }
 
-// ─── PÁGINA PRINCIPAL ──────────────────────────────────────────────────────────
+// ─── PÁGINA PRINCIPAL ────────────────────────────────────────────────────────
 export default function Usuarios() {
   const { perfil: perfilAtual } = useAuth()
   const isAdmin = ['SUPER_ADMIN', 'GESTOR_CADASTRO'].includes(perfilAtual?.perfil)
 
-  const [aba, setAba]               = useState('usuarios')
-  const [usuarios, setUsuarios]     = useState([])
-  const [convites, setConvites]     = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [busca, setBusca]           = useState('')
-
+  const [aba, setAba]                           = useState('usuarios')
+  const [usuarios, setUsuarios]                 = useState([])
+  const [convites, setConvites]                 = useState([])
+  const [loading, setLoading]                   = useState(true)
+  const [busca, setBusca]                       = useState('')
   const [modalConvite, setModalConvite]         = useState(false)
-  const [conviteEditando, setConviteEditando]   = useState(null)
   const [usuarioEditando, setUsuarioEditando]   = useState(null)
 
-  // Usuários em tempo real
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), snap => {
       setUsuarios(snap.docs.map(d => ({ id: d.id, ...d.data() })))
@@ -354,38 +357,32 @@ export default function Usuarios() {
     return unsub
   }, [])
 
-  // Convites (carrega uma vez e recarrega ao salvar)
   async function carregarConvites() {
     try {
       const snap = await getDocs(query(collection(db, 'convites'), orderBy('criadoEm', 'desc')))
       setConvites(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   useEffect(() => { carregarConvites() }, [])
 
   async function toggleAtivo(u) {
-    await updateDoc(doc(db, 'usuarios', u.id), {
-      ativo: !u.ativo, atualizadoEm: serverTimestamp(),
-    })
+    await updateDoc(doc(db, 'usuarios', u.id), { ativo: !u.ativo, atualizadoEm: serverTimestamp() })
   }
 
   async function excluirConvite(id) {
-    if (!confirm('Cancelar este convite?')) return
+    if (!confirm('Cancelar este convite? O link deixará de funcionar.')) return
     await deleteDoc(doc(db, 'convites', id))
     carregarConvites()
   }
 
-  const filtrados = usuarios.filter(u =>
+  const filtrados          = usuarios.filter(u =>
     u.nome?.toLowerCase().includes(busca.toLowerCase()) ||
     u.email?.toLowerCase().includes(busca.toLowerCase()) ||
     u.perfil?.toLowerCase().includes(busca.toLowerCase())
   )
-
-  const convitesPendentes = convites.filter(c => !c.usado)
-  const convitesUsados    = convites.filter(c => c.usado)
+  const convitesPendentes  = convites.filter(c => !c.usado)
+  const convitesUsados     = convites.filter(c => c.usado)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1000 }}>
@@ -393,20 +390,15 @@ export default function Usuarios() {
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5 }}>
-            Usuários
-          </h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5 }}>Usuários</h1>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
             {usuarios.filter(u => u.ativo).length} ativos
             {convitesPendentes.length > 0 && ` · ${convitesPendentes.length} convite${convitesPendentes.length > 1 ? 's' : ''} pendente${convitesPendentes.length > 1 ? 's' : ''}`}
           </p>
         </div>
         {isAdmin && (
-          <button
-            className="btn btn-primary"
-            onClick={() => { setConviteEditando(null); setModalConvite(true) }}
-          >
-            ✉️ Convidar Pessoa
+          <button className="btn btn-primary" onClick={() => setModalConvite(true)}>
+            🔗 Gerar convite
           </button>
         )}
       </div>
@@ -414,19 +406,19 @@ export default function Usuarios() {
       {/* ABAS */}
       <div style={{ borderBottom: '1px solid var(--border)', display: 'flex' }}>
         <Aba id="usuarios" label={`Usuários (${usuarios.length})`} ativa={aba === 'usuarios'} onClick={setAba} />
-        <Aba id="convites" label={`Convites${convitesPendentes.length > 0 ? ` · ${convitesPendentes.length} pendente${convitesPendentes.length > 1 ? 's' : ''}` : ''}`} ativa={aba === 'convites'} onClick={setAba} />
+        <Aba
+          id="convites"
+          label={`Convites${convitesPendentes.length > 0 ? ` · ${convitesPendentes.length} pendente${convitesPendentes.length > 1 ? 's' : ''}` : ''}`}
+          ativa={aba === 'convites'}
+          onClick={setAba}
+        />
       </div>
 
       {/* ── ABA USUÁRIOS ── */}
       {aba === 'usuarios' && (
         <>
-          <input
-            className="input"
-            placeholder="Buscar por nome, email ou perfil..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            style={{ maxWidth: 360 }}
-          />
+          <input className="input" placeholder="Buscar por nome, email ou perfil..."
+            value={busca} onChange={e => setBusca(e.target.value)} style={{ maxWidth: 360 }} />
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {loading ? (
@@ -444,18 +436,14 @@ export default function Usuarios() {
                       <th key={h} style={{
                         padding: '12px 16px', textAlign: 'left',
                         fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-                        textTransform: 'uppercase', letterSpacing: .5,
-                        background: 'var(--surface)',
+                        textTransform: 'uppercase', letterSpacing: .5, background: 'var(--surface)',
                       }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtrados.map(u => (
-                    <tr key={u.id} style={{
-                      borderBottom: '1px solid var(--border)',
-                      opacity: u.ativo ? 1 : 0.5,
-                    }}>
+                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', opacity: u.ativo ? 1 : 0.5 }}>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{
@@ -463,16 +451,14 @@ export default function Usuarios() {
                             background: u.ativo ? 'var(--acc-dim)' : 'var(--surface2)',
                             border: `1px solid ${u.ativo ? 'rgba(249,115,22,.25)' : 'var(--border2)'}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 13, fontWeight: 700,
-                            color: u.ativo ? 'var(--accent)' : 'var(--text3)',
-                            flexShrink: 0,
+                            fontSize: 13, fontWeight: 700, color: u.ativo ? 'var(--accent)' : 'var(--text3)', flexShrink: 0,
                           }}>
                             {(u.nome || 'U')[0].toUpperCase()}
                           </div>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{u.nome}</div>
                             <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'DM Mono, monospace' }}>
-                              UID: {u.id.slice(0, 12)}...
+                              {u.email || `UID: ${u.id.slice(0, 12)}...`}
                             </div>
                           </div>
                         </div>
@@ -491,18 +477,10 @@ export default function Usuarios() {
                       <td style={{ padding: '12px 16px' }}>
                         {isAdmin && (
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 11, padding: '5px 10px' }}
-                              onClick={() => setUsuarioEditando(u)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              className={`btn ${u.ativo ? 'btn-danger' : 'btn-success'}`}
-                              style={{ fontSize: 11, padding: '5px 10px' }}
-                              onClick={() => toggleAtivo(u)}
-                            >
+                            <button className="btn btn-ghost" style={{ fontSize: 11, padding: '5px 10px' }}
+                              onClick={() => setUsuarioEditando(u)}>Editar</button>
+                            <button className={`btn ${u.ativo ? 'btn-danger' : 'btn-success'}`}
+                              style={{ fontSize: 11, padding: '5px 10px' }} onClick={() => toggleAtivo(u)}>
                               {u.ativo ? 'Desativar' : 'Ativar'}
                             </button>
                           </div>
@@ -524,46 +502,33 @@ export default function Usuarios() {
           {convites.length === 0 ? (
             <div style={{
               padding: '60px 20px', textAlign: 'center',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
             }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>✉️</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
-                Nenhum convite enviado ainda
-              </div>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🔗</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Nenhum convite gerado</div>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>
-                Convide pessoas pelo e-mail da conta Google delas.
+                Gere um link e compartilhe com a pessoa pelo WhatsApp ou email.
               </div>
               {isAdmin && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => { setConviteEditando(null); setModalConvite(true) }}
-                >
-                  ✉️ Convidar Pessoa
-                </button>
+                <button className="btn btn-primary" onClick={() => setModalConvite(true)}>🔗 Gerar convite</button>
               )}
             </div>
           ) : (
             <>
-              {/* Pendentes */}
               {convitesPendentes.length > 0 && (
                 <div>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-                    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
-                  }}>
-                    Aguardando primeiro acesso ({convitesPendentes.length})
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                    Aguardando uso ({convitesPendentes.length})
                   </div>
                   <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                          {['Nome', 'E-mail', 'Perfil', 'Convidado por', 'Ações'].map(h => (
+                          {['Nome', 'Perfil', 'Convidado por', 'Link', 'Ações'].map(h => (
                             <th key={h} style={{
                               padding: '12px 16px', textAlign: 'left',
                               fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-                              textTransform: 'uppercase', letterSpacing: .5,
-                              background: 'var(--surface)',
+                              textTransform: 'uppercase', letterSpacing: .5, background: 'var(--surface)',
                             }}>{h}</th>
                           ))}
                         </tr>
@@ -571,36 +536,18 @@ export default function Usuarios() {
                       <tbody>
                         {convitesPendentes.map(c => (
                           <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                              {c.nome}
-                            </td>
-                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text2)', fontFamily: 'DM Mono, monospace' }}>
-                              {c.email}
-                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.nome}</td>
                             <td style={{ padding: '12px 16px' }}>
                               <span className={`badge ${PERFIL_CORES[c.perfil] || 'badge-gray'}`}>{c.perfil}</span>
                             </td>
-                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>
-                              {c.convidadoPor || '—'}
+                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>{c.convidadoPor || '—'}</td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <CopiarLink id={c.id} />
                             </td>
                             <td style={{ padding: '12px 16px' }}>
                               {isAdmin && (
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <button
-                                    className="btn btn-ghost"
-                                    style={{ fontSize: 11, padding: '5px 10px' }}
-                                    onClick={() => { setConviteEditando(c); setModalConvite(true) }}
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    className="btn btn-danger"
-                                    style={{ fontSize: 11, padding: '5px 10px' }}
-                                    onClick={() => excluirConvite(c.id)}
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
+                                <button className="btn btn-danger" style={{ fontSize: 11, padding: '5px 10px' }}
+                                  onClick={() => excluirConvite(c.id)}>Cancelar</button>
                               )}
                             </td>
                           </tr>
@@ -611,13 +558,9 @@ export default function Usuarios() {
                 </div>
               )}
 
-              {/* Aceitos */}
               {convitesUsados.length > 0 && (
                 <div>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-                    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
-                  }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
                     Aceitos ({convitesUsados.length})
                   </div>
                   <div className="card" style={{ padding: 0, overflow: 'hidden', opacity: 0.6 }}>
@@ -625,14 +568,12 @@ export default function Usuarios() {
                       <tbody>
                         {convitesUsados.map(c => (
                           <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                              {c.nome}
-                            </td>
-                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text2)', fontFamily: 'DM Mono, monospace' }}>
-                              {c.email}
-                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.nome}</td>
                             <td style={{ padding: '12px 16px' }}>
                               <span className={`badge ${PERFIL_CORES[c.perfil] || 'badge-gray'}`}>{c.perfil}</span>
+                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>
+                              {c.emailUsado || '—'}
                             </td>
                             <td style={{ padding: '12px 16px' }}>
                               <span className="badge badge-green">✓ Aceito</span>
@@ -647,16 +588,13 @@ export default function Usuarios() {
             </>
           )}
 
-          {/* INFO */}
           <div style={{
-            background: 'var(--acc-dim)',
-            border: '1px solid rgba(249,115,22,.2)',
-            borderRadius: 'var(--radius)',
-            padding: '14px 18px',
+            background: 'var(--acc-dim)', border: '1px solid rgba(249,115,22,.2)',
+            borderRadius: 'var(--radius)', padding: '14px 18px',
             fontSize: 12, color: 'var(--text2)', lineHeight: 1.6,
           }}>
             <strong style={{ color: 'var(--accent)' }}>ℹ️ Como funciona:</strong><br />
-            Adicione o e-mail Google da pessoa e o perfil desejado. Na primeira vez que ela fizer login, o acesso será criado automaticamente. Quem não tiver convite verá uma tela de acesso negado.
+            Gere um link, copie e mande no WhatsApp ou email. A pessoa clica, faz login com a conta Google dela, e o acesso é criado automaticamente com o perfil que você definiu. Quem não tiver link não consegue entrar.
           </div>
         </div>
       )}
@@ -664,18 +602,42 @@ export default function Usuarios() {
       {/* MODAIS */}
       {modalConvite && (
         <ModalConvite
-          convite={conviteEditando}
           nomeAdmin={perfilAtual?.nome}
-          onClose={() => { setModalConvite(false); setConviteEditando(null) }}
-          onSalvo={carregarConvites}
+          onClose={() => setModalConvite(false)}
+          onGerado={carregarConvites}
         />
       )}
       {usuarioEditando && (
-        <ModalUsuario
-          usuario={usuarioEditando}
-          onClose={() => setUsuarioEditando(null)}
-        />
+        <ModalUsuario usuario={usuarioEditando} onClose={() => setUsuarioEditando(null)} />
       )}
     </div>
+  )
+}
+
+// ─── BOTÃO COPIAR LINK ────────────────────────────────────────────────────────
+function CopiarLink({ id }) {
+  const [copiado, setCopiado] = useState(false)
+  const link = `${BASE_URL}/convite/${id}`
+
+  async function copiar() {
+    try { await navigator.clipboard.writeText(link) }
+    catch {
+      const el = document.createElement('textarea')
+      el.value = link; document.body.appendChild(el)
+      el.select(); document.execCommand('copy')
+      document.body.removeChild(el)
+    }
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+
+  return (
+    <button
+      className={`btn ${copiado ? 'btn-success' : 'btn-ghost'}`}
+      onClick={copiar}
+      style={{ fontSize: 11, padding: '5px 10px' }}
+    >
+      {copiado ? '✓ Copiado' : '📋 Copiar link'}
+    </button>
   )
 }

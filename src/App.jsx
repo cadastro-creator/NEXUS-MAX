@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import AcessoNegado from './pages/AcessoNegado.jsx'
+import Convite from './pages/Convite.jsx'
 
 function PrivateRoute({ children }) {
   const { authStatus } = useAuth()
@@ -37,6 +38,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* Rota pública — link de convite compartilhável */}
+          <Route path="/convite/:id" element={<Convite />} />
           <Route path="/*" element={
             <PrivateRoute>
               <Dashboard />
