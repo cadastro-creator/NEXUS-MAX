@@ -9,16 +9,10 @@ function PrivateRoute({ children }) {
 
   if (loading) return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-      background: 'var(--bg)',
-      color: 'var(--text2)',
-      fontFamily: 'DM Sans, sans-serif',
-      fontSize: 14,
-      flexDirection: 'column',
-      gap: 16
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', background: 'var(--bg)', color: 'var(--text2)',
+      fontFamily: 'DM Sans, sans-serif', fontSize: 14,
+      flexDirection: 'column', gap: 16
     }}>
       <div style={{
         width: 36, height: 36,
@@ -30,7 +24,6 @@ function PrivateRoute({ children }) {
       <span>Carregando NEXUS...</span>
     </div>
   )
-
   return user ? children : <Navigate to="/login" replace />
 }
 
