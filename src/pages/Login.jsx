@@ -72,7 +72,7 @@ export default function Login() {
             lineHeight: 1,
             marginBottom: 8,
           }}>
-            S.C.A.R
+            NEXUS 
             <span style={{
               color: 'var(--accent)',
               marginLeft: 12,
@@ -91,7 +91,7 @@ export default function Login() {
         {/* FEATURES */}
         {[
           { icon: '📋', titulo: 'Central de Cadastros',    desc: 'Fila inteligente com aprovação, devolução e histórico completo' },
-          { icon: '📊', titulo: 'Painel S.C.A.R',          desc: 'Dashboard em tempo real com curva ABC, KPIs e alertas' },
+          { icon: '📊', titulo: 'Painel NEXUS ',          desc: 'Dashboard em tempo real com curva ABC, KPIs e alertas' },
           { icon: '🔔', titulo: 'Notificações Automáticas', desc: 'Comprador, fiscal e gerente notificados em uma única ação' },
           { icon: '⚙️', titulo: '100% Configurável',        desc: 'Campos, perfis e permissões ajustáveis sem código' },
         ].map((f, i) => (
@@ -232,7 +232,7 @@ export default function Login() {
           fontFamily: 'DM Mono, monospace',
           letterSpacing: .5,
         }}>
-          CONTATTOS © {new Date().getFullYear()} — S.C.A.R MAX
+          CONTATTOS © {new Date().getFullYear()} — NEXUS  MAX
         </div>
       </div>
     </div>
