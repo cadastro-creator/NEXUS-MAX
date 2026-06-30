@@ -6,6 +6,7 @@ import Fila from './Fila.jsx'
 import Usuarios from './Usuarios.jsx'
 import Painel from './Painel.jsx'
 import Produtos from './Produtos.jsx'
+import Configuracoes from './Configuracoes.jsx'
 
 const MENU = [
   { id: 'home',        icon: '⬡',  label: 'Dashboard'        },
@@ -337,6 +338,7 @@ function PaginaAtiva({ id, perfil, user }) {
   if (id === 'usuarios') return <Usuarios />
   if (id === 'painel') return <Painel />
   if (id === 'produtos') return <Produtos />
+  if (id === 'config') return <Configuracoes />
   return <EmConstrucao />
 }
 
