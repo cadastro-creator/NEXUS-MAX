@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore'
 import { db } from '../firebase/config.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
@@ -257,6 +257,34 @@ function ModalSolicitacao({ solicitacao: s, onClose, isGestor, perfil, user }) {
         ...(codigoCitel && { codigoCitel }),
         ...(motivo && { motivoUltimo: motivo }),
       })
+
+      // Ao aprovar, cria automaticamente o produto no ciclo de vida do SKU
+      if (tipo === 'APROVAR' && codigoCitel) {
+        const ehVPE = s.tipo === 'VPE'
+        await setDoc(doc(db, 'produtos', codigoCitel.trim()), {
+          codigoCitel:    codigoCitel.trim(),
+          descricao:      s.descricao || '',
+          marca:          s.marca || '',
+          fornecedor:     s.fornecedor || '',
+          tipoOrigem:     s.tipo,
+          estado:         ehVPE ? 'VPE_ATIVO' : 'ATIVO_PORTFOLIO',
+          ativoCompras:   true,
+          timerInicio:    ehVPE ? serverTimestamp() : null,
+          timerDias:      ehVPE ? 30 : null,
+          vendedor:       s.vendedor || null,
+          cliente:        s.cliente || null,
+          solicitacaoId:  s.id,
+          criadoEm:       serverTimestamp(),
+          atualizadoEm:   serverTimestamp(),
+          historico: [{
+            acao: 'CRIADO',
+            estado: ehVPE ? 'VPE_ATIVO' : 'ATIVO_PORTFOLIO',
+            responsavel: perfil?.nome || user?.email,
+            data: new Date().toISOString(),
+          }],
+        }, { merge: true })
+      }
+
       onClose()
     } catch (e) {
       alert('Erro ao salvar: ' + e.message)

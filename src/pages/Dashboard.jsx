@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext.jsx'
 import Fila from './Fila.jsx'
 import Usuarios from './Usuarios.jsx'
 import Painel from './Painel.jsx'
+import Produtos from './Produtos.jsx'
 
 const MENU = [
   { id: 'home',        icon: '⬡',  label: 'Dashboard'        },
@@ -20,6 +21,26 @@ export default function Dashboard() {
   const { user, perfil, logout } = useAuth()
   const isAdmin = ['SUPER_ADMIN', 'GESTOR_CADASTRO'].includes(perfil?.perfil)
   const [paginaAtiva, setPaginaAtiva] = useState('home')
+  const [alertasVencidos, setAlertasVencidos] = useState(0)
+
+  // Sino de alertas em tempo real — produtos com timer (lê 1x via onSnapshot, sem custo extra)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'produtos'), where('estado', 'in', ['ATIVO_TEMPORARIO', 'VPE_ATIVO'])),
+      snap => {
+        const agora = Date.now()
+        const vencidos = snap.docs.filter(d => {
+          const p = d.data()
+          if (!p.timerInicio || !p.timerDias) return false
+          const inicio = p.timerInicio.toDate ? p.timerInicio.toDate() : new Date(p.timerInicio)
+          const fim = inicio.getTime() + p.timerDias * 24 * 60 * 60 * 1000
+          return fim <= agora
+        })
+        setAlertasVencidos(vencidos.length)
+      }
+    )
+    return unsub
+  }, [])
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -157,6 +178,33 @@ export default function Dashboard() {
             {MENU.find(m => m.id === paginaAtiva)?.label || 'Dashboard'}
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* SINO DE ALERTAS — timers de produtos vencidos */}
+            <div
+              onClick={() => setPaginaAtiva('produtos')}
+              style={{
+                position: 'relative', cursor: 'pointer',
+                width: 34, height: 34, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: alertasVencidos > 0 ? 'rgba(242,92,110,.12)' : 'var(--surface2)',
+                border: `1px solid ${alertasVencidos > 0 ? 'rgba(242,92,110,.3)' : 'var(--border)'}`,
+              }}
+              title={alertasVencidos > 0 ? `${alertasVencidos} produto(s) com timer vencido` : 'Nenhum alerta'}
+            >
+              <span style={{ fontSize: 15 }}>🔔</span>
+              {alertasVencidos > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -4,
+                  background: 'var(--red)', color: '#fff',
+                  borderRadius: '50%', minWidth: 16, height: 16,
+                  fontSize: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 3px',
+                }}>
+                  {alertasVencidos}
+                </span>
+              )}
+            </div>
+
             <span style={{
               fontSize: 12, color: 'var(--text3)',
               fontFamily: 'DM Mono, monospace',
@@ -184,6 +232,7 @@ function PaginaAtiva({ id, perfil, user }) {
   if (id === 'fila') return <Fila />
   if (id === 'usuarios') return <Usuarios />
   if (id === 'painel') return <Painel />
+  if (id === 'produtos') return <Produtos />
   return <EmConstrucao />
 }
 
