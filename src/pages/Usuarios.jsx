@@ -30,6 +30,12 @@ const PERFIL_CORES = {
   GARANTIAS:         'badge-gray',
 }
 
+const METODOS = [
+  { value: 'google',  label: 'Google',          icon: '🔵' },
+  { value: 'email',    label: 'E-mail e senha',  icon: '✉️' },
+  { value: 'usuario',  label: 'Usuário e senha', icon: '🔑' },
+]
+
 function Aba({ id, label, ativa, onClick }) {
   return (
     <button onClick={() => onClick(id)} style={{
@@ -47,7 +53,10 @@ function Aba({ id, label, ativa, onClick }) {
 
 // ─── MODAL GERAR CONVITE ────────────────────────────────────────────────────
 function ModalConvite({ onClose, onGerado, nomeAdmin }) {
-  const [form, setForm]       = useState({ nome: '', perfil: 'COMPRADOR' })
+  const [form, setForm] = useState({
+    nome: '', perfil: 'COMPRADOR',
+    metodosPermitidos: ['google', 'email', 'usuario'], // padrão: todos liberados
+  })
   const [gerando, setGerando] = useState(false)
   const [link, setLink]       = useState('')
   const [copiado, setCopiado] = useState(false)
@@ -55,19 +64,31 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
 
   const set = (campo, valor) => { setForm(f => ({ ...f, [campo]: valor })); setErro('') }
 
+  function toggleMetodo(valor) {
+    setForm(f => {
+      const atual = f.metodosPermitidos
+      const novo = atual.includes(valor)
+        ? atual.filter(m => m !== valor)
+        : [...atual, valor]
+      return { ...f, metodosPermitidos: novo }
+    })
+  }
+
   async function gerar() {
     if (!form.nome.trim()) return setErro('Informe o nome da pessoa.')
+    if (form.metodosPermitidos.length === 0) return setErro('Selecione ao menos um método de acesso.')
+
     setGerando(true)
     try {
       const ref = await addDoc(collection(db, 'convites'), {
-        nome:         form.nome.trim(),
-        perfil:       form.perfil,
-        usado:        false,
-        convidadoPor: nomeAdmin || 'Admin',
-        criadoEm:     serverTimestamp(),
+        nome:               form.nome.trim(),
+        perfil:             form.perfil,
+        metodosPermitidos:  form.metodosPermitidos,
+        usado:              false,
+        convidadoPor:       nomeAdmin || 'Admin',
+        criadoEm:           serverTimestamp(),
       })
-      const url = `${BASE_URL}/convite/${ref.id}`
-      setLink(url)
+      setLink(`${BASE_URL}/convite/${ref.id}`)
       onGerado()
     } catch (e) {
       setErro('Erro ao gerar convite: ' + e.message)
@@ -78,19 +99,16 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
   async function copiar() {
     try {
       await navigator.clipboard.writeText(link)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2000)
     } catch {
-      // fallback para dispositivos sem clipboard API
       const el = document.createElement('textarea')
       el.value = link
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
       document.body.removeChild(el)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2000)
     }
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
   }
 
   return (
@@ -105,7 +123,6 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
         borderRadius: 'var(--radius)', width: '100%', maxWidth: 460,
       }} onClick={e => e.stopPropagation()}>
 
-        {/* HEADER */}
         <div style={{
           padding: '20px 24px', borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -151,7 +168,47 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
                 </select>
               </div>
 
-              {/* PREVIEW */}
+              {/* MÉTODOS PERMITIDOS */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
+                  Métodos de acesso permitidos
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
+                  Por padrão a pessoa escolhe livremente. Desmarque para restringir.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {METODOS.map(m => {
+                    const marcado = form.metodosPermitidos.includes(m.value)
+                    return (
+                      <div
+                        key={m.value}
+                        onClick={() => toggleMetodo(m.value)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          background: marcado ? 'var(--acc-dim)' : 'var(--surface2)',
+                          border: `1px solid ${marcado ? 'rgba(249,115,22,.3)' : 'var(--border)'}`,
+                          borderRadius: 'var(--radius-sm)', padding: '10px 14px',
+                          cursor: 'pointer', transition: 'all .15s',
+                        }}
+                      >
+                        <div style={{
+                          width: 18, height: 18, borderRadius: 4,
+                          border: `2px solid ${marcado ? 'var(--accent)' : 'var(--border2)'}`,
+                          background: marcado ? 'var(--accent)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, color: '#fff', flexShrink: 0,
+                        }}>
+                          {marcado ? '✓' : ''}
+                        </div>
+                        <span style={{ fontSize: 13 }}>{m.icon}</span>
+                        <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{m.label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* PREVIEW PERFIL */}
               <div style={{
                 background: 'var(--surface2)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)', padding: '12px 16px',
@@ -197,7 +254,6 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
                 </span>
               </div>
 
-              {/* CAIXA DO LINK */}
               <div style={{
                 background: 'var(--surface2)', border: '1px solid var(--border2)',
                 borderRadius: 'var(--radius-sm)', padding: '12px 16px',
@@ -207,7 +263,6 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
                 {link}
               </div>
 
-              {/* BOTÃO COPIAR */}
               <button
                 className={`btn ${copiado ? 'btn-success' : 'btn-primary'}`}
                 onClick={copiar}
@@ -216,15 +271,15 @@ function ModalConvite({ onClose, onGerado, nomeAdmin }) {
                 {copiado ? '✓ Copiado!' : '📋 Copiar link'}
               </button>
 
-              {/* INSTRUÇÃO */}
               <div style={{
                 background: 'var(--acc-dim)', border: '1px solid rgba(249,115,22,.2)',
                 borderRadius: 'var(--radius-sm)', padding: '12px 16px',
                 fontSize: 12, color: 'var(--text2)', lineHeight: 1.6,
               }}>
-                <strong style={{ color: 'var(--accent)' }}>Como usar:</strong><br />
-                Cole este link no WhatsApp ou email. A pessoa clica, faz login com a conta Google, e o acesso é criado automaticamente.<br />
-                <span style={{ color: 'var(--text3)' }}>O link é de uso único e não expira.</span>
+                <strong style={{ color: 'var(--accent)' }}>Métodos liberados:</strong>{' '}
+                {form.metodosPermitidos.map(m => METODOS.find(x => x.value === m)?.label).join(', ')}
+                <br />
+                <span style={{ color: 'var(--text3)' }}>Cole este link no WhatsApp ou email. O link é de uso único.</span>
               </div>
 
               <button className="btn btn-ghost" onClick={onClose} style={{ width: '100%', justifyContent: 'center' }}>
@@ -376,13 +431,14 @@ export default function Usuarios() {
     carregarConvites()
   }
 
-  const filtrados          = usuarios.filter(u =>
+  const filtrados = usuarios.filter(u =>
     u.nome?.toLowerCase().includes(busca.toLowerCase()) ||
     u.email?.toLowerCase().includes(busca.toLowerCase()) ||
+    u.username?.toLowerCase().includes(busca.toLowerCase()) ||
     u.perfil?.toLowerCase().includes(busca.toLowerCase())
   )
-  const convitesPendentes  = convites.filter(c => !c.usado)
-  const convitesUsados     = convites.filter(c => c.usado)
+  const convitesPendentes = convites.filter(c => !c.usado)
+  const convitesUsados    = convites.filter(c => c.usado)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1000 }}>
@@ -417,7 +473,7 @@ export default function Usuarios() {
       {/* ── ABA USUÁRIOS ── */}
       {aba === 'usuarios' && (
         <>
-          <input className="input" placeholder="Buscar por nome, email ou perfil..."
+          <input className="input" placeholder="Buscar por nome, email, usuário ou perfil..."
             value={busca} onChange={e => setBusca(e.target.value)} style={{ maxWidth: 360 }} />
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -432,7 +488,7 @@ export default function Usuarios() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Usuário', 'Email', 'Perfil', 'Status', 'Ações'].map(h => (
+                    {['Usuário', 'Login', 'Perfil', 'Status', 'Ações'].map(h => (
                       <th key={h} style={{
                         padding: '12px 16px', textAlign: 'left',
                         fontSize: 11, fontWeight: 700, color: 'var(--text3)',
@@ -455,16 +511,14 @@ export default function Usuarios() {
                           }}>
                             {(u.nome || 'U')[0].toUpperCase()}
                           </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{u.nome}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'DM Mono, monospace' }}>
-                              {u.email || `UID: ${u.id.slice(0, 12)}...`}
-                            </div>
-                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{u.nome}</div>
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text2)' }}>
-                        {u.email || <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>não definido</span>}
+                      <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text2)', fontFamily: 'DM Mono, monospace' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>{u.metodoAcesso === 'usuario' ? '🔑' : u.metodoAcesso === 'email' ? '✉️' : '🔵'}</span>
+                          {u.email || u.username || <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>}
+                        </div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <span className={`badge ${PERFIL_CORES[u.perfil] || 'badge-gray'}`}>{u.perfil}</span>
@@ -524,7 +578,7 @@ export default function Usuarios() {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                          {['Nome', 'Perfil', 'Convidado por', 'Link', 'Ações'].map(h => (
+                          {['Nome', 'Perfil', 'Métodos', 'Link', 'Ações'].map(h => (
                             <th key={h} style={{
                               padding: '12px 16px', textAlign: 'left',
                               fontSize: 11, fontWeight: 700, color: 'var(--text3)',
@@ -534,24 +588,29 @@ export default function Usuarios() {
                         </tr>
                       </thead>
                       <tbody>
-                        {convitesPendentes.map(c => (
-                          <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.nome}</td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <span className={`badge ${PERFIL_CORES[c.perfil] || 'badge-gray'}`}>{c.perfil}</span>
-                            </td>
-                            <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>{c.convidadoPor || '—'}</td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <CopiarLink id={c.id} />
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              {isAdmin && (
-                                <button className="btn btn-danger" style={{ fontSize: 11, padding: '5px 10px' }}
-                                  onClick={() => excluirConvite(c.id)}>Cancelar</button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {convitesPendentes.map(c => {
+                          const metodos = c.metodosPermitidos?.length > 0 ? c.metodosPermitidos : ['google', 'email', 'usuario']
+                          return (
+                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.nome}</td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span className={`badge ${PERFIL_CORES[c.perfil] || 'badge-gray'}`}>{c.perfil}</span>
+                              </td>
+                              <td style={{ padding: '12px 16px', fontSize: 14 }}>
+                                {metodos.map(m => METODOS.find(x => x.value === m)?.icon).join(' ')}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <CopiarLink id={c.id} />
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                {isAdmin && (
+                                  <button className="btn btn-danger" style={{ fontSize: 11, padding: '5px 10px' }}
+                                    onClick={() => excluirConvite(c.id)}>Cancelar</button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -573,7 +632,7 @@ export default function Usuarios() {
                               <span className={`badge ${PERFIL_CORES[c.perfil] || 'badge-gray'}`}>{c.perfil}</span>
                             </td>
                             <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>
-                              {c.emailUsado || '—'}
+                              {METODOS.find(m => m.value === c.metodoUsado)?.icon} {METODOS.find(m => m.value === c.metodoUsado)?.label || '—'}
                             </td>
                             <td style={{ padding: '12px 16px' }}>
                               <span className="badge badge-green">✓ Aceito</span>
@@ -594,7 +653,7 @@ export default function Usuarios() {
             fontSize: 12, color: 'var(--text2)', lineHeight: 1.6,
           }}>
             <strong style={{ color: 'var(--accent)' }}>ℹ️ Como funciona:</strong><br />
-            Gere um link, copie e mande no WhatsApp ou email. A pessoa clica, faz login com a conta Google dela, e o acesso é criado automaticamente com o perfil que você definiu. Quem não tiver link não consegue entrar.
+            Gere um link e mande no WhatsApp ou email. A pessoa escolhe entrar com Google, e-mail+senha ou usuário+senha — a não ser que você restrinja os métodos no convite. O acesso é criado automaticamente com o perfil definido.
           </div>
         </div>
       )}

@@ -3,12 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function Login() {
-  const { loginGoogle, user, erro: erroAuth } = useAuth()
+  const { loginGoogle, loginComSenha, user, erro: erroAuth } = useAuth()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [erro, setErro] = useState('')
 
-  useEffect(() => {if (user) {navigate('/', { replace: true })}}, [user])
+  const [loading, setLoading]           = useState(false)
+  const [erro, setErro]                 = useState('')
+  const [metodoSenha, setMetodoSenha]   = useState(null) // null | 'email' | 'usuario'
+  const [identificador, setIdentificador] = useState('')
+  const [senha, setSenha]               = useState('')
+  const [entrandoSenha, setEntrandoSenha] = useState(false)
+
+  useEffect(() => { if (user) navigate('/', { replace: true }) }, [user])
   useEffect(() => { if (erroAuth) setErro(erroAuth) }, [erroAuth])
 
   async function handleLogin() {
@@ -20,6 +25,26 @@ export default function Login() {
       setErro('Erro ao iniciar login. Tente novamente.')
       setLoading(false)
     }
+  }
+
+  async function handleLoginSenha(e) {
+    e.preventDefault()
+    if (!identificador.trim() || !senha) {
+      setErro(metodoSenha === 'usuario' ? 'Informe usuário e senha.' : 'Informe e-mail e senha.')
+      return
+    }
+    setErro('')
+    setEntrandoSenha(true)
+    const result = await loginComSenha(identificador.trim(), senha)
+    if (!result.ok) setErro(result.erro)
+    setEntrandoSenha(false)
+  }
+
+  function voltar() {
+    setMetodoSenha(null)
+    setIdentificador('')
+    setSenha('')
+    setErro('')
   }
 
   return (
@@ -72,7 +97,7 @@ export default function Login() {
             lineHeight: 1,
             marginBottom: 8,
           }}>
-            NEXUS 
+            NEXUS
             <span style={{
               color: 'var(--accent)',
               marginLeft: 12,
@@ -161,50 +186,151 @@ export default function Login() {
               Bem-vindo de volta
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 1.5 }}>
-              Acesse com sua conta Google corporativa para continuar.
+              {metodoSenha
+                ? 'Entre com suas credenciais para continuar.'
+                : 'Escolha como deseja acessar o sistema.'}
             </div>
           </div>
 
-          {/* BOTÃO */}
-          <button
-            className="btn btn-primary"
-            onClick={handleLogin}
-            disabled={loading}
-            style={{
-              width: '100%',
-              justifyContent: 'center',
-              padding: '14px 18px',
-              fontSize: 14,
-              borderRadius: 'var(--radius)',
-              marginBottom: 16,
-              fontWeight: 700,
-              letterSpacing: .3,
-            }}
-          >
-            {loading
-              ? <><Spinner /> Redirecionando...</>
-              : <><GoogleIcon /> Entrar com Google</>
-            }
-          </button>
+          {/* ── ESCOLHA DE MÉTODO (tela inicial) ── */}
+          {!metodoSenha && (
+            <>
+              {/* BOTÃO GOOGLE */}
+              <button
+                className="btn btn-primary"
+                onClick={handleLogin}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '14px 18px',
+                  fontSize: 14,
+                  borderRadius: 'var(--radius)',
+                  marginBottom: 12,
+                  fontWeight: 700,
+                  letterSpacing: .3,
+                }}
+              >
+                {loading
+                  ? <><Spinner /> Redirecionando...</>
+                  : <><GoogleIcon /> Entrar com Google</>
+                }
+              </button>
 
-          {/* ERRO */}
-          {erro && (
-            <div style={{
-              background: 'var(--red-dim)',
-              color: 'var(--red)',
-              border: '1px solid rgba(242,92,110,.3)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              fontSize: 12,
-              textAlign: 'center',
-              marginBottom: 16,
-              lineHeight: 1.5,
-            }}>
-              {erro}
-            </div>
+              {/* ERRO (escolha de método) */}
+              {erro && (
+                <div style={{
+                  background: 'var(--red-dim)',
+                  color: 'var(--red)',
+                  border: '1px solid rgba(242,92,110,.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  textAlign: 'center',
+                  marginBottom: 12,
+                  lineHeight: 1.5,
+                }}>
+                  {erro}
+                </div>
+              )}
+
+              {/* DIVIDER */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>ou</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {/* BOTÃO E-MAIL */}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => { setMetodoSenha('email'); setErro('') }}
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: 13, marginBottom: 8 }}
+              >
+                ✉️ Entrar com e-mail e senha
+              </button>
+
+              {/* BOTÃO USUÁRIO */}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => { setMetodoSenha('usuario'); setErro('') }}
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: 13 }}
+              >
+                🔑 Entrar com usuário e senha
+              </button>
+            </>
           )}
 
-          {/* DIVIDER */}
+          {/* ── FORMULÁRIO DE SENHA (email ou usuário) ── */}
+          {metodoSenha && (
+            <form onSubmit={handleLoginSenha} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Badge do método escolhido */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', padding: '8px 12px', marginBottom: 4,
+              }}>
+                <span style={{ fontSize: 16 }}>{metodoSenha === 'email' ? '✉️' : '🔑'}</span>
+                <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>
+                  {metodoSenha === 'email' ? 'Login por e-mail' : 'Login por usuário'}
+                </span>
+              </div>
+
+              <input
+                className="input"
+                type={metodoSenha === 'email' ? 'email' : 'text'}
+                placeholder={metodoSenha === 'email' ? 'seu@email.com' : 'Nome de usuário'}
+                value={identificador}
+                onChange={e => setIdentificador(e.target.value)}
+                autoFocus
+              />
+              <input
+                className="input"
+                type="password"
+                placeholder="Senha"
+                value={senha}
+                onChange={e => setSenha(e.target.value)}
+              />
+
+              {/* ERRO (formulário de senha) */}
+              {erro && (
+                <div style={{
+                  background: 'var(--red-dim)',
+                  color: 'var(--red)',
+                  border: '1px solid rgba(242,92,110,.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  textAlign: 'center',
+                  lineHeight: 1.5,
+                }}>
+                  {erro}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={entrandoSenha}
+                style={{ width: '100%', justifyContent: 'center', padding: '13px 18px', fontSize: 14, fontWeight: 700 }}
+              >
+                {entrandoSenha ? 'Entrando...' : 'Entrar'}
+              </button>
+
+              <button
+                type="button"
+                onClick={voltar}
+                style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', padding: 4 }}
+              >
+                ← Voltar para outras opções
+              </button>
+            </form>
+          )}
+
+          {/* DIVIDER FINAL */}
           <div style={{
             width: '100%', height: 1,
             background: 'var(--border)',
