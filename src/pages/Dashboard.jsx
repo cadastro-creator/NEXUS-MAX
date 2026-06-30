@@ -4,6 +4,7 @@ import { db } from '../firebase/config.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import Fila from './Fila.jsx'
 import Usuarios from './Usuarios.jsx'
+import Painel from './Painel.jsx'
 
 const MENU = [
   { id: 'home',        icon: '⬡',  label: 'Dashboard'        },
@@ -182,6 +183,7 @@ function PaginaAtiva({ id, perfil, user }) {
   if (id === 'home') return <PaginaHome perfil={perfil} user={user} />
   if (id === 'fila') return <Fila />
   if (id === 'usuarios') return <Usuarios />
+  if (id === 'painel') return <Painel />
   return <EmConstrucao />
 }
 
