@@ -120,6 +120,7 @@ export default function Fila() {
             </div>
           </div>
         ) : (
+          <div className="table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -194,6 +195,7 @@ export default function Fila() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -310,7 +312,7 @@ function ModalSolicitacao({ solicitacao: s, onClose, isGestor, perfil, user }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20, backdropFilter: 'blur(4px)',
     }} onClick={onClose}>
-      <div style={{
+      <div className="modal-box" style={{
         background: 'var(--surface)',
         border: '1px solid var(--border2)',
         borderRadius: 'var(--radius)',
@@ -551,7 +553,7 @@ function ModalNovaSolicitacao({ onClose, perfil, user }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 20, backdropFilter: 'blur(4px)',
     }} onClick={onClose}>
-      <div style={{
+      <div className="modal-box" style={{
         background: 'var(--surface)',
         border: '1px solid var(--border2)',
         borderRadius: 'var(--radius)',

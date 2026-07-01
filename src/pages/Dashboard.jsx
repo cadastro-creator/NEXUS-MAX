@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [alertasVencidos, setAlertasVencidos] = useState(0)
   const [notificacoes, setNotificacoes] = useState([])
   const [sinoAberto, setSinoAberto] = useState(false)
+  const [sidebarAberta, setSidebarAberta] = useState(false)
   const sinoRef = useRef(null)
   const notificadosRef = useRef(new Set())
   const primeiraCargaRef = useRef(true)
@@ -113,11 +114,22 @@ export default function Dashboard() {
 
   const totalSino = alertasVencidos + notificacoes.length
 
+  function navegar(id) {
+    setPaginaAtiva(id)
+    setSidebarAberta(false)
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
 
+      {/* OVERLAY MOBILE */}
+      <div
+        className={`sidebar-overlay${sidebarAberta ? ' open' : ''}`}
+        onClick={() => setSidebarAberta(false)}
+      />
+
       {/* SIDEBAR */}
-      <aside style={{
+      <aside className={`sidebar-drawer${sidebarAberta ? ' open' : ''}`} style={{
         width: 'var(--sidebar-w)',
         minHeight: '100%',
         background: 'var(--surface)',
@@ -161,7 +173,7 @@ export default function Dashboard() {
           {MENU.filter(i => !i.admin || isAdmin).map(item => (
             <div
               key={item.id}
-              onClick={() => setPaginaAtiva(item.id)}
+              onClick={() => navegar(item.id)}
               style={{
                 margin: '2px 8px',
                 padding: '10px 12px',
@@ -232,9 +244,10 @@ export default function Dashboard() {
       </aside>
 
       {/* MAIN */}
-      <main style={{
+      <main className="main-content" style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', background: 'var(--bg)',
+        minWidth: 0,
       }}>
 
         {/* TOPBAR */}
@@ -242,13 +255,17 @@ export default function Dashboard() {
           height: 'var(--topbar-h)',
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center',
-          padding: '0 24px', gap: 16, flexShrink: 0,
+          padding: '0 16px', gap: 12, flexShrink: 0,
           background: 'var(--surface)',
         }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+          {/* Hamburguer — só aparece no mobile via CSS */}
+          <button className="hamburger" onClick={() => setSidebarAberta(o => !o)}>
+            ☰
+          </button>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {MENU.find(m => m.id === paginaAtiva)?.label || 'Dashboard'}
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* SINO — timers vencidos + notificações do sistema */}
             <div ref={sinoRef} style={{ position: 'relative' }}>
               <div
@@ -279,7 +296,7 @@ export default function Dashboard() {
 
               {/* DROPDOWN DO SINO */}
               {sinoAberto && (
-                <div style={{
+                <div className="sino-dropdown" style={{
                   position: 'absolute', top: 42, right: 0, zIndex: 600,
                   width: 320, maxHeight: 440, overflowY: 'auto',
                   background: 'var(--surface)', border: '1px solid var(--border2)',
@@ -337,20 +354,20 @@ export default function Dashboard() {
               )}
             </div>
 
-            <span style={{
+            <span className="topbar-email" style={{
               fontSize: 12, color: 'var(--text3)',
               fontFamily: 'DM Mono, monospace',
             }}>
               {user?.email}
             </span>
-            <span className={`badge ${perfil?.perfil === 'SUPER_ADMIN' ? 'badge-orange' : 'badge-gray'}`}>
+            <span className={`topbar-badge badge ${perfil?.perfil === 'SUPER_ADMIN' ? 'badge-orange' : 'badge-gray'}`}>
               {perfil?.perfil}
             </span>
           </div>
         </header>
 
         {/* CONTEÚDO */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        <div className="page-content" style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
           <PaginaAtiva id={paginaAtiva} perfil={perfil} user={user} />
         </div>
       </main>
@@ -440,7 +457,7 @@ function PaginaHome({ perfil, user }) {
       </div>
 
       {/* CARDS DE KPI */}
-      <div style={{
+      <div className="kpi-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: 16,

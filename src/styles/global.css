@@ -203,3 +203,131 @@ body {
   background: var(--acc-dim2);
   color: var(--accent);
 }
+
+/* ── RESPONSIVIDADE MOBILE ────────────────────────────────────────────────── */
+
+/* Tabelas com scroll horizontal */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Overlay da sidebar mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+/* Botão hamburguer — escondido no desktop */
+.hamburger {
+  display: none;
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* Email/badge ocultos em telas muito pequenas */
+.topbar-email { display: inline; }
+.topbar-badge { display: inline-flex; }
+
+@media (max-width: 768px) {
+  :root {
+    --topbar-h: 52px;
+  }
+
+  html, body, #root { overflow: hidden; }
+
+  /* Sidebar vira drawer */
+  .sidebar-drawer {
+    position: fixed !important;
+    top: 0; left: 0;
+    height: 100vh !important;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    width: 260px !important;
+  }
+  .sidebar-drawer.open {
+    transform: translateX(0);
+  }
+
+  /* Overlay visível quando sidebar aberta */
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  /* Hamburguer visível */
+  .hamburger {
+    display: inline-flex;
+  }
+
+  /* Main ocupa tela toda (sem sidebar empurrando) */
+  .main-content {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Padding menor no conteúdo */
+  .page-content {
+    padding: 16px !important;
+  }
+
+  /* Cards de KPI — 2 colunas no mobile */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Modais full-width no mobile */
+  .modal-box {
+    max-width: calc(100vw - 24px) !important;
+    margin: 0 12px;
+  }
+
+  /* Ocultar email longo no topbar */
+  .topbar-email { display: none; }
+  .topbar-badge { display: none; }
+
+  /* Dropdown do sino — full width */
+  .sino-dropdown {
+    width: calc(100vw - 32px) !important;
+    right: -8px !important;
+  }
+
+  /* Tabela: células menores */
+  table td, table th {
+    padding: 10px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Botões menores */
+  .btn { padding: 8px 14px; font-size: 12px; }
+
+  /* Configurações: overflow em tabelas */
+  .resp-overflow { overflow-x: auto; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .page-content {
+    padding: 12px !important;
+  }
+
+  .card { padding: 14px !important; }
+}
